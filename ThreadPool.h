@@ -30,14 +30,18 @@ ThreadPool::ThreadPool(size_t threads)
     : stop(false)
 {
     for (size_t i = 0; i < threads; i++) {
+        // 'emplace_back' will construct a std::thread with the lambda expression and add it to the 'worker' vector
         workers.emplace_back([this] {
+
+            // the thread just do one thing: try to get a task from 'tasks' and execute it.
+
             while (true) {
                 function<void()> task;
 
                 {
                     unique_lock<mutex> lock(this->queue_mutex);
 
-                    // Unblock once there is a task or 'stop == true'.
+                    // Unblock when there is a task or 'stop == true'.
                     // That means it will never block as if 'stop == true'.
                     // We should never worry there will be thread blocked when 'stop == true'.
                     condition.wait(lock, [this] { return this->stop || !this->tasks.empty(); }); 
@@ -61,7 +65,7 @@ ThreadPool::~ThreadPool()
         stop = true;
     }
 
-    // Wake up all thread, and all the thread is waiting to acquire lock, maybe one thread already get the  
+    // Wake up all thread, and all the thread is waiting to acquire lock, maybe one thread already get the  lock and enter the wait state.
     condition.notify_all();
     for (std::thread& worker : workers)
         worker.join();
